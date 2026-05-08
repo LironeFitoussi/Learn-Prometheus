@@ -284,7 +284,7 @@ Copy the Linux AMD64 download URL.
 Example:
 
 ```bash id="jlwm9x"
-wget https://github.com/prometheus/prometheus/releases/download/v3.4.1/prometheus-3.4.1.linux-amd64.tar.gz
+wget https://github.com/prometheus/prometheus/releases/download/v3.5.3/prometheus-3.5.3.linux-amd64.tar.gz
 ```
 
 ---
@@ -463,7 +463,7 @@ Copy Linux AMD64 URL.
 Example:
 
 ```bash id="wjlwm8"
-wget https://github.com/prometheus/node_exporter/releases/download/v1.9.1/node_exporter-1.9.1.linux-amd64.tar.gz
+wget https://github.com/prometheus/node_exporter/releases/download/v1.11.1/node_exporter-1.11.1.linux-amd64.tar.gz
 ```
 
 ---
