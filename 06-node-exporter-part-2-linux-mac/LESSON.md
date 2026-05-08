@@ -300,8 +300,10 @@ tar -xvf prometheus-*.tar.gz
 # **14. Enter the Directory**
 
 ```bash id="zjlwm9"
-cd prometheus-*
+cd prometheus-*/
 ```
+
+> Note: Prometheus v3.x no longer ships `consoles` / `console_libraries`. Tarball contains only `prometheus`, `promtool`, `prometheus.yml`, `LICENSE`, `NOTICE`.
 
 ---
 
@@ -332,7 +334,7 @@ sudo mv prometheus promtool /usr/local/bin/
 ```
 
 ```bash id="sjlwm6"
-sudo mv consoles console_libraries prometheus.yml /etc/prometheus/
+sudo mv prometheus.yml /etc/prometheus/
 ```
 
 ---
@@ -370,9 +372,7 @@ Type=simple
 
 ExecStart=/usr/local/bin/prometheus \
   --config.file=/etc/prometheus/prometheus.yml \
-  --storage.tsdb.path=/var/lib/prometheus/ \
-  --web.console.templates=/etc/prometheus/consoles \
-  --web.console.libraries=/etc/prometheus/console_libraries
+  --storage.tsdb.path=/var/lib/prometheus/
 
 [Install]
 WantedBy=multi-user.target
