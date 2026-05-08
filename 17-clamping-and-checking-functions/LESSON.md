@@ -1,0 +1,3 @@
+﻿# Clamping and Checking Functions
+
+

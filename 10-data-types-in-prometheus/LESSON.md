@@ -1,0 +1,3 @@
+﻿# Data Types in Prometheus
+
+
