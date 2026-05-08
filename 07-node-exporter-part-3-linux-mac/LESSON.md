@@ -208,7 +208,7 @@ Benefits:
 
 ---
 
-# **Wשד גשדhen to Use Public IPs**
+# **Why Then to Use Public IPs**
 
 Only use public IPs if:
 
@@ -218,7 +218,7 @@ Only use public IPs if:
 
 ---
 
-#שדג שד  **PART 3.4 — Save the Configuration**
+#**PART 3.4 — Save the Configuration**
 
 # **10. Save the File in Nano**
 
