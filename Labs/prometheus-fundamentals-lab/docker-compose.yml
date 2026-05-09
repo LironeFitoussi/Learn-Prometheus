@@ -1,0 +1,90 @@
+# =============================================================================
+# Prometheus Fundamentals Lab — investigation-driven SRE training stack
+# -----------------------------------------------------------------------------
+# Services:
+#   prometheus  - scrape engine + TSDB + query API     :9090
+#   api         - FastAPI service exposing /metrics    :8000
+#   worker      - traffic generator (no inbound port)
+#   redis       - supporting dependency for the API    :6379 (internal)
+# =============================================================================
+
+services:
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: prom-fund-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lab
+
+  api:
+    build: ./api
+    container_name: prom-fund-api
+    restart: unless-stopped
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    ports:
+      - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys;urllib.request.urlopen('http://localhost:8000/healthz',timeout=2)\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - lab
+
+  worker:
+    build: ./worker
+    container_name: prom-fund-worker
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:8000
+      REQUEST_INTERVAL_MS: "500"      # tweak to change traffic rate
+      SLOW_PROBABILITY: "0.2"
+      ERROR_PROBABILITY: "0.15"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - lab
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: prom-fund-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - lab
+
+volumes:
+  prometheus_data:
+
+networks:
+  lab:
+    driver: bridge

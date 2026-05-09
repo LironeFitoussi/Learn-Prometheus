@@ -1,0 +1,56 @@
+# =============================================================================
+# Alert rules
+# -----------------------------------------------------------------------------
+# An alert rule is a PromQL expression evaluated every `evaluation_interval`.
+# When the expression returns a non-empty result for at least `for:` duration,
+# the alert transitions to FIRING state.
+#
+# `labels`      - added to the alert (used for routing in Alertmanager).
+# `annotations` - human-readable text shown in UIs / notifications.
+#
+# View firing alerts at:  http://localhost:9090/alerts
+# =============================================================================
+
+groups:
+
+  # ---------------------------------------------------------------------------
+  - name: availability
+    rules:
+      - alert: InstanceDown
+        # `up` is a built-in metric Prometheus generates for every scrape:
+        # 1 = scrape succeeded, 0 = scrape failed (target unreachable).
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} is down"
+          description: "{{ $labels.job }} target {{ $labels.instance }} has been unreachable for more than 1 minute."
+
+  # ---------------------------------------------------------------------------
+  - name: host-resources
+    rules:
+      # CPU usage = 1 - average idle ratio across all CPUs on the host.
+      # `rate(...[5m])` computes per-second average increase over the last 5m.
+      # node_cpu_seconds_total is a counter (monotonically increasing seconds
+      # spent in each CPU mode); rate() turns it into a usage ratio.
+      - alert: HighCPUUsage
+        expr: |
+          100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU usage is above 80% for more than 5 minutes (current: {{ $value | printf \"%.1f\" }}%)."
+
+      # Memory pressure: less than 15% of memory available.
+      - alert: HighMemoryUsage
+        expr: |
+          (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low available memory on {{ $labels.instance }}"
+          description: "Available memory is below 15% for more than 5 minutes (current: {{ $value | printf \"%.1f\" }}%)."

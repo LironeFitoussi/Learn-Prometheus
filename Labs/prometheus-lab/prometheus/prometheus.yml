@@ -1,0 +1,76 @@
+# =============================================================================
+# Prometheus main configuration
+# -----------------------------------------------------------------------------
+# Concepts in play here:
+#
+#   * Time series  - a stream of (timestamp, float64) samples uniquely
+#                    identified by a metric name + a set of key/value labels.
+#                    Example: up{job="node-exporter", instance="node-exporter:9100"}
+#
+#   * Scrape job   - a named group of targets (e.g. "node-exporter") that
+#                    Prometheus pulls metrics from on the same interval.
+#
+#   * Target       - a single host:port endpoint that exposes /metrics in
+#                    Prometheus text format.
+#
+#   * Labels       - dimensions attached to series. Labels defined here
+#                    (under static_configs.labels) are added to every series
+#                    scraped from those targets. The label `job` is added
+#                    automatically from `job_name`, and `instance` from the
+#                    target address.
+#
+#   * Exporter     - a small process that translates some system's metrics
+#                    into Prometheus text format on /metrics (e.g. node_exporter
+#                    for Linux hosts, cAdvisor for containers).
+# =============================================================================
+
+global:
+  # How often Prometheus pulls /metrics from each target.
+  # 5s is fast for a learning lab so you see changes quickly. In prod, 15-60s
+  # is normal; 5s on big fleets explodes TSDB write rate.
+  scrape_interval: 5s
+
+  # How often alerting + recording rules are evaluated against the TSDB.
+  evaluation_interval: 15s
+
+  # Labels stamped on every alert and on every series sent to remote_write.
+  # Useful when you federate or mix data from many Prometheus servers.
+  external_labels:
+    cluster: prometheus-lab
+    environment: dev
+
+# Alerting + recording rules. Glob picks up every *.yml in the rules dir.
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# -----------------------------------------------------------------------------
+# Scrape jobs. Each job_name becomes the value of the `job` label on every
+# series scraped from its targets.
+# -----------------------------------------------------------------------------
+scrape_configs:
+
+  # --- 1. Prometheus scraping itself --------------------------------------
+  # Useful for monitoring the monitoring system (meta-metrics: scrape duration,
+  # rule eval time, TSDB head series, etc.).
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - "localhost:9090"
+
+  # --- 2. node-exporter: host metrics -------------------------------------
+  # Target uses the Compose service DNS name "node-exporter" - Docker's
+  # embedded DNS resolves it to the container IP on the monitoring network.
+  - job_name: node-exporter
+    static_configs:
+      - targets:
+          - "node-exporter:9100"
+        labels:
+          role: host
+
+  # --- 3. cAdvisor: per-container metrics ---------------------------------
+  - job_name: cadvisor
+    static_configs:
+      - targets:
+          - "cadvisor:8080"
+        labels:
+          role: container

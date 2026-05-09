@@ -1,0 +1,18 @@
+# Dashboard provider. Tells Grafana to load any *.json dashboard files from
+# /var/lib/grafana/dashboards (mounted from ./grafana/dashboards on host).
+#
+# Drop a dashboard JSON in there and it appears under the "Lab" folder in
+# Grafana on next reload (provisioning rescans every `updateIntervalSeconds`).
+apiVersion: 1
+
+providers:
+  - name: "Lab"
+    orgId: 1
+    folder: "Lab"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: true

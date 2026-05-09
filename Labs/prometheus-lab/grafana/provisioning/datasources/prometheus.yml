@@ -1,0 +1,14 @@
+# Auto-provisioned Grafana datasource. Loaded on Grafana startup; no UI clicks.
+# Docs: https://grafana.com/docs/grafana/latest/administration/provisioning/#datasources
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy                  # Grafana backend talks to Prom (not browser)
+    url: http://prometheus:9090    # Compose DNS name on the monitoring network
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "5s"           # match Prometheus scrape_interval
+      httpMethod: POST

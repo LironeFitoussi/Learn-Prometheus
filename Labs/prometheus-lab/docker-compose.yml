@@ -1,0 +1,152 @@
+# =============================================================================
+# Prometheus Learning Lab - Docker Compose stack
+# -----------------------------------------------------------------------------
+# Services:
+#   prometheus    - TSDB + scrape engine + rule evaluator       :9090
+#   grafana       - Visualization, auto-provisioned datasource  :3000
+#   node-exporter - Host-level metrics (CPU, mem, disk, net)    :9100
+#   cadvisor      - Per-container metrics from cgroups          :8080
+#
+# All services share the "monitoring" bridge network so Prometheus can scrape
+# them by Compose service name (DNS) instead of IP.
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Prometheus: pulls metrics from all targets, stores them as time series,
+  # evaluates alert rules. Web UI on :9090.
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      # Lifecycle API enables hot-reload via POST /-/reload (no restart needed).
+      - "--web.enable-lifecycle"
+      # Admin API allows snapshot/delete operations against the TSDB.
+      - "--web.enable-admin-api"
+    ports:
+      - "9090:9090"
+    volumes:
+      # Read-only bind mounts: configs live in the repo so changes are tracked.
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      # Named volume for TSDB persistence across container recreations.
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - monitoring
+
+  # ---------------------------------------------------------------------------
+  # Grafana: queries Prometheus, draws dashboards. Default login admin/admin.
+  # Datasource is auto-provisioned from grafana/provisioning/datasources.
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - monitoring
+
+  # ---------------------------------------------------------------------------
+  # node-exporter: exposes host OS metrics on :9100/metrics.
+  # An "exporter" is any process that translates some system into Prometheus
+  # text format. node-exporter reads /proc and /sys on Linux.
+  # ---------------------------------------------------------------------------
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: node-exporter
+    restart: unless-stopped
+    # pid: host + the rootfs mounts let node-exporter see the real host,
+    # not just its own container. Required on Linux for accurate metrics.
+    pid: host
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:9100/metrics || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - monitoring
+
+  # ---------------------------------------------------------------------------
+  # cAdvisor: per-container CPU, memory, network, disk. Reads cgroups + Docker.
+  # The host mounts below are NOT optional - see README "Why cAdvisor needs
+  # host mounts" for justification of each one.
+  # ---------------------------------------------------------------------------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    restart: unless-stopped
+    privileged: true       # needed on some Linux distros to read cgroup v2 stats
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro                        # host fs metadata
+      - /var/run:/var/run:ro                # docker socket dir for container discovery
+      - /sys:/sys:ro                        # cgroup CPU/memory stats
+      - /var/lib/docker/:/var/lib/docker:ro # docker container metadata
+      - /dev/disk/:/dev/disk:ro             # disk I/O stats
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - monitoring
+
+# -----------------------------------------------------------------------------
+# Named volumes survive `docker compose down` (use `down -v` to wipe).
+# -----------------------------------------------------------------------------
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  monitoring:
+    driver: bridge

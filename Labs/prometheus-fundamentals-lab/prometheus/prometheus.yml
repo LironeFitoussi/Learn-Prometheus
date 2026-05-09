@@ -1,0 +1,37 @@
+# =============================================================================
+# Prometheus configuration — fundamentals lab
+# -----------------------------------------------------------------------------
+# Concepts:
+#   * scrape_configs : list of jobs Prometheus will pull from.
+#   * job            : group of related targets sharing scrape settings.
+#                      The `job` label is added automatically to every series.
+#   * target         : one host:port endpoint exposing /metrics.
+#   * labels         : key/value pairs that turn raw metric names into uniquely
+#                      identifiable time series (metric + labels = one series).
+# =============================================================================
+
+global:
+  # Pull /metrics from every target every 5 seconds.
+  scrape_interval: 5s
+  # How often alert/recording rules are evaluated. No rules in this lab.
+  evaluation_interval: 15s
+  external_labels:
+    lab: prometheus-fundamentals
+
+scrape_configs:
+
+  # --- Self-scrape: Prometheus exposes its own metrics on /metrics ----------
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - "localhost:9090"
+
+  # --- API service: scraped via Compose DNS name "api" ----------------------
+  # Adds an explicit `service` label so learners can practice label filtering.
+  - job_name: api
+    static_configs:
+      - targets:
+          - "api:8000"
+        labels:
+          service: orders-api
+          tier: backend

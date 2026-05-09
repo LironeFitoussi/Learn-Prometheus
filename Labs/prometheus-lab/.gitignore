@@ -1,0 +1,14 @@
+# Local data directories (only relevant if you switch from named volumes to bind mounts)
+data/
+prometheus_data/
+grafana_data/
+
+# Editor / OS junk
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local override
+docker-compose.override.yml
+.env
